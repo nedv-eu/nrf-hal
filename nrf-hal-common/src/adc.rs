@@ -149,3 +149,76 @@ channel_mappings! {
 
 pub struct InternalVddOneThird;
 pub struct InternalVddTwoThirds;
+
+// -----------------------------------------------------------------------------
+// Async
+
+use crate::pac::interrupt;
+use embassy::waitqueue::AtomicWaker;
+use core::task::Poll;
+use futures::future::poll_fn;
+
+static WAKER: AtomicWaker = AtomicWaker::new();
+
+#[interrupt]
+fn ADC() {
+    let p = unsafe {crate::pac::Peripherals::steal()};
+    p.ADC.intenclr.write(|w| w.end().clear());
+    WAKER.wake();
+}
+
+impl Adc {
+
+pub async fn read_async<PIN> (&mut self, _pin: &mut PIN) -> i16
+                where PIN: Channel<Adc, ID = u8>, {
+    self.0.tasks_stop.write(|w| unsafe {w.bits(1)});
+    let original_inpsel = self.0.config.read().inpsel();
+    match PIN::channel() {
+        0 => self.0.config.modify(|_, w| w.psel().analog_input0()),
+        1 => self.0.config.modify(|_, w| w.psel().analog_input1()),
+        2 => self.0.config.modify(|_, w| w.psel().analog_input2()),
+        3 => self.0.config.modify(|_, w| w.psel().analog_input3()),
+        4 => self.0.config.modify(|_, w| w.psel().analog_input4()),
+        5 => self.0.config.modify(|_, w| w.psel().analog_input5()),
+        6 => self.0.config.modify(|_, w| w.psel().analog_input6()),
+        7 => self.0.config.modify(|_, w| w.psel().analog_input7()),
+        8 => self
+            .0
+            .config
+            .modify(|_, w| w.inpsel().supply_one_third_prescaling()),
+        9 => self
+            .0
+            .config
+            .modify(|_, w| w.inpsel().supply_two_thirds_prescaling()),
+        // This can never happen the only analog pins have already been defined
+        // PAY CLOSE ATTENTION TO ANY CHANGES TO THIS IMPL OR THE `channel_mappings!` MACRO
+        _ => unsafe { unreachable_unchecked() },
+    }
+
+    self.0.events_end.write(|w| unsafe { w.bits(0) });
+    unsafe { cortex_m::peripheral::NVIC::unmask(crate::pac::Interrupt::ADC); }
+    self.0.intenset.write(|w| w.end().set() );
+    self.0.tasks_start.write(|w| unsafe { w.bits(1) });
+    
+
+    //while self.0.events_end.read().bits() == 0 {}
+    let value = poll_fn(|cx| {
+        WAKER.register(cx.waker());
+        if self.0.events_end.read().bits() == 0  {
+            return Poll::Pending;
+        } else {
+            self.0.events_end.write(|w| unsafe { w.bits(0) });
+            // Restore original input selection
+            self.0
+                .config
+                .modify(|_, w| w.inpsel().variant(original_inpsel.variant().unwrap()));
+            
+            // Max resolution is 10 bits so casting is always safe
+            Poll::Ready(self.0.result.read().result().bits() as i16)
+        }
+    })
+    .await;
+    value    
+}
+
+} //impl Adc

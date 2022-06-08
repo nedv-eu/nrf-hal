@@ -27,6 +27,7 @@ rand_core = "0.6.3"
 cfg-if = "1.0.0"
 embedded-dma = "0.2.0"
 embedded-storage = "0.3.0"
+futures = { version = "0.3.17", default-features = false }
 
 [dependencies.void]
 default-features = false
@@ -79,6 +80,14 @@ optional = true
 [dependencies.embedded-hal]
 features = ["unproven"]
 version = "0.2.4"
+
+[dependencies.embassy]
+#optional = true
+git = "https://github.com/embassy-rs/embassy.git"
+rev = "e10fc2bada1c59420431f09a35f7aa09a5b45623"
+features = ["defmt", "defmt-timestamp-uptime"]
+
+
 
 [features]
 doc = []

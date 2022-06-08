@@ -20,6 +20,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 nrf51-pac = "0.11.0"
+futures = { version = "0.3.17", default-features = false }
 
 [dependencies.nrf-hal-common]
 path = "../nrf-hal-common"
@@ -31,6 +32,14 @@ version = "=0.15.1"
 features = ["unproven"]
 version = "0.2.3"
 
+[dependencies.embassy]
+#optional = true
+git = "https://github.com/embassy-rs/embassy.git"
+rev = "e10fc2bada1c59420431f09a35f7aa09a5b45623"
+features = ["defmt", "defmt-timestamp-uptime"]
+
+
+
 [features]
 doc = []
 rt = ["nrf51-pac/rt"]
@@ -39,3 +48,4 @@ default = ["rt", "xxAB-package"]
 xxAA-package = []
 xxAB-package = []
 xxAC-package = []
+#embassy = ["embassy"]
